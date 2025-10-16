@@ -15,6 +15,12 @@ import numpy as np
 if __name__ == "__main__":
     # 1. Simulação
     df = simulate_mm_c(total_minutes=8*60*60)  # 60 dias, 8h/dia
+
+    # ---------- Novo bloco: gerar relatório PDF ----------
+    from reports.generate_report import create_pdf_report
+    create_pdf_report(df, filename="reports/relatorio_atendimento.pdf")
+    # ------------------------------------------------------
+
     # 2. Preparar dados
     X, y = build_supervised(df)
     n = len(X)
