@@ -1,5 +1,12 @@
+import os
+
+# Suprimir mensagens informativas do TensorFlow
+os.environ['TF_CPP_MIN_LOG_LEVEL'] = '2'  # 0 = tudo, 1 = avisos, 2 = erros apenas, 3 = erros fatais
+os.environ['TF_ENABLE_ONEDNN_OPTS'] = '0'  # desativa avisos oneDNN
+
+
 from src.simulate import simulate_mm_c
-from src.prepare_data import build_supervised
+from src.prepare_data import build_supervised_lstm as build_supervised
 from src.train_model import train_nn
 from src.recommend import recommend_servers
 import pandas as pd
@@ -20,6 +27,6 @@ if __name__ == "__main__":
     model = train_nn(X_train, y_train, X_val, y_val, X.shape[1])
 
     # 4. Testar recomendação
-    row = df.iloc[1000]
-    c_rec, pred_q = recommend_servers(row, model)
+    row_index = 1000
+    c_rec, pred_q = recommend_servers(row_index, df, model)
     print(f"\n🔍 Recomendação: {c_rec} atendentes → previsão de fila = {pred_q:.2f}")
