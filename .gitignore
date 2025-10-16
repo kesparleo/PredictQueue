@@ -1,0 +1,66 @@
+# ======================================
+# Python / Project / TensorFlow Ignore
+# ======================================
+
+# Compiled / bytecode
+__pycache__/
+*.py[cod]
+*$py.class
+
+# Virtual environment
+venv/
+.env/
+env/
+
+# IDE / editor settings
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# Logs
+*.log
+*.out
+*.err
+
+# Data and generated outputs
+data/*.csv
+data/*.parquet
+data/*.json
+*.h5
+*.hdf5
+*.keras
+*.npy
+*.npz
+
+# Model artefacts
+models/*.h5
+models/*.pkl
+models/*.joblib
+models/*.onnx
+
+# Jupyter checkpoints
+.ipynb_checkpoints/
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Temporary files
+tmp/
+*.tmp
+
+# Build and distribution
+build/
+dist/
+*.egg-info/
+.eggs/
+
+# Cache
+.cache/
+__pypackages__/
+.pytest_cache/
+
+# ======================================
+# Fim
+# ======================================
