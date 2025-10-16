@@ -5,7 +5,7 @@
 ## Descrição
 Este projeto simula um sistema de atendimento do tipo M/M/c, onde estudantes chegam aleatoriamente para realizar pagamentos ou tratar de documentos. Utiliza uma **rede neural** para prever o tamanho da fila e recomendar o número ideal de atendentes.  
 
-O objetivo é estudar padrões de congestionamento e otimizar recursos humanos no atendimento, fornecendo um ambiente de análise científica baseado em simulação e Machine Learning.
+O objetivo é estudar padrões de congestionamento e otimizar recursos humanos no atendimento, fornecendo um ambiente de análise científica baseado em simulação.
 
 ## Estrutura do Projeto
 
