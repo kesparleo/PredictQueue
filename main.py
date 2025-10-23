@@ -1,161 +1,232 @@
 import tkinter as tk
 from tkinter import ttk, filedialog, scrolledtext
+import numpy as np
+import tensorflow as tf
+from tensorflow import keras
+from tensorflow.keras import layers
 import re
 from collections import Counter
-import math
+import warnings
+warnings.filterwarnings('ignore')
 
-class AITextDetector:
+class AITextDetectorML:
     def __init__(self):
-        # Palavras comuns em textos gerados por IA
-        self.ai_indicators = [
+        self.max_words = 5000
+        self.max_len = 200
+        self.model = None
+        self.tokenizer = None
+        self._build_and_train_model()
+        
+    def _build_and_train_model(self):
+        """Constrói e treina o modelo TensorFlow"""
+        print("Inicializando modelo TensorFlow...")
+        
+        # Criar tokenizer
+        self.tokenizer = keras.preprocessing.text.Tokenizer(
+            num_words=self.max_words,
+            oov_token='<OOV>'
+        )
+        
+        # Gerar dados de treino sintéticos
+        ai_texts, human_texts = self._generate_training_data()
+        all_texts = ai_texts + human_texts
+        labels = [1] * len(ai_texts) + [0] * len(human_texts)
+        
+        # Treinar tokenizer
+        self.tokenizer.fit_on_texts(all_texts)
+        
+        # Converter textos para sequências
+        sequences = self.tokenizer.texts_to_sequences(all_texts)
+        padded = keras.preprocessing.sequence.pad_sequences(
+            sequences,
+            maxlen=self.max_len,
+            padding='post',
+            truncating='post'
+        )
+        
+        # Construir modelo
+        self.model = keras.Sequential([
+            layers.Embedding(self.max_words, 128, input_length=self.max_len),
+            layers.Bidirectional(layers.LSTM(64, return_sequences=True)),
+            layers.GlobalMaxPooling1D(),
+            layers.Dense(64, activation='relu'),
+            layers.Dropout(0.5),
+            layers.Dense(32, activation='relu'),
+            layers.Dropout(0.3),
+            layers.Dense(1, activation='sigmoid')
+        ])
+        
+        self.model.compile(
+            optimizer='adam',
+            loss='binary_crossentropy',
+            metrics=['accuracy']
+        )
+        
+        # Treinar modelo
+        X = np.array(padded)
+        y = np.array(labels)
+        
+        self.model.fit(
+            X, y,
+            epochs=10,
+            batch_size=32,
+            validation_split=0.2,
+            verbose=0
+        )
+        
+        print("Modelo treinado com sucesso!")
+    
+    def _generate_training_data(self):
+        """Gera dados sintéticos para treino"""
+        # Textos típicos de IA (formais, estruturados, com conectivos)
+        ai_texts = [
+            "É importante notar que a inteligência artificial tem revolucionado diversos setores. Além disso, as aplicações práticas são vastas. Portanto, podemos concluir que o futuro é promissor.",
+            "No contexto atual, observamos que a tecnologia avança rapidamente. Consequentemente, as empresas precisam se adaptar. Vale ressaltar que a inovação é fundamental.",
+            "A análise dos dados demonstra claramente que há uma tendência crescente. Ademais, os resultados são consistentes. Dessa forma, podemos inferir conclusões importantes.",
+            "Furthermore, it is essential to understand the implications. Moreover, the research indicates significant progress. Therefore, we can conclude with confidence.",
+            "The implementation of this solution requires careful consideration. Additionally, the benefits are substantial. Consequently, stakeholders should prioritize this initiative.",
+            "In this context, we observe several key factors. Furthermore, the data supports our hypothesis. Thus, we can proceed with the proposed approach.",
+            "É fundamental destacar que os resultados obtidos são significativos. Além disso, a metodologia empregada foi rigorosa. Portanto, as conclusões são confiáveis.",
+            "No âmbito desta discussão, cabe ressaltar diversos aspectos relevantes. Ademais, as evidências corroboram nossa análise. Dessa maneira, podemos avançar com segurança.",
+            "The systematic approach yields consistent results. Moreover, the framework is robust. Therefore, implementation can proceed as planned.",
+            "It is worth noting that the parameters are well-defined. Additionally, the metrics demonstrate effectiveness. Consequently, the model performs optimally.",
+        ]
+        
+        # Textos típicos humanos (informais, variados, com erros ocasionais)
+        human_texts = [
+            "Cara, ontem eu vi um negócio muito doido! Tipo assim, tava andando na rua e do nada... nossa, nem sei explicar direito haha",
+            "Bom, eu acho que isso não faz muito sentido sabe? Tipo, já tentei fazer desse jeito antes e não deu certo. Mas sei lá, vai que agora funciona né",
+            "Olha só, vou te contar uma coisa: esse lance de IA tá ficando cada vez mais louco. Mas tem hora que eu fico pensando... será que é tudo isso mesmo?",
+            "So yeah, I was thinking about this the other day and... idk, it's kinda weird right? Like, why would anyone do that lol",
+            "Honestly? I'm not sure what to think anymore. Things have been pretty crazy lately and I just... yeah.",
+            "Mano do céu, que dia! Acordei tarde, perdi o ônibus, cheguei atrasado no trabalho. Enfim, só mais um dia normal na minha vida caótica kkk",
+            "Então né, eu tava conversando com meu amigo outro dia e ele falou uma parada interessante. Não lembro exatamente o que era mas... ah, deixa pra lá",
+            "You know what really grinds my gears? When people don't use their turn signals. Like seriously?? It's not that hard!",
+            "Acabei de ver aquele filme que todo mundo tava falando. Meh, achei meio overrated. Mas tem gente que amou, vai entender...",
+            "I mean, sure, it could work. But also... couldn't it not work? That's what I'm worried about tbh",
+        ]
+        
+        # Expandir dataset com variações
+        ai_expanded = []
+        human_expanded = []
+        
+        for text in ai_texts:
+            ai_expanded.append(text)
+            # Adicionar variações
+            ai_expanded.append(text + " " + ai_texts[np.random.randint(0, len(ai_texts))])
+        
+        for text in human_texts:
+            human_expanded.append(text)
+            # Adicionar variações
+            human_expanded.append(text + " " + human_texts[np.random.randint(0, len(human_texts))])
+        
+        return ai_expanded, human_expanded
+    
+    def analyze_text(self, text):
+        """Analisa o texto usando o modelo TensorFlow"""
+        if not text or len(text.strip()) < 20:
+            return 0, [], "Texto muito curto para análise"
+        
+        # Preparar texto para o modelo
+        sequence = self.tokenizer.texts_to_sequences([text])
+        padded = keras.preprocessing.sequence.pad_sequences(
+            sequence,
+            maxlen=self.max_len,
+            padding='post',
+            truncating='post'
+        )
+        
+        # Fazer predição
+        prediction = self.model.predict(padded, verbose=0)[0][0]
+        ai_probability = float(prediction) * 100
+        
+        # Análise adicional para identificar partes suspeitas
+        suspicious_parts = self._identify_suspicious_parts(text)
+        
+        # Gerar relatório
+        report = self._generate_report(ai_probability, text)
+        
+        return ai_probability, suspicious_parts, report
+    
+    def _identify_suspicious_parts(self, text):
+        """Identifica partes específicas que parecem geradas por IA"""
+        suspicious = []
+        
+        # Conectivos formais típicos de IA
+        ai_connectors = [
             'além disso', 'portanto', 'no entanto', 'consequentemente',
             'é importante notar', 'vale ressaltar', 'cabe destacar',
             'neste contexto', 'dessa forma', 'assim sendo',
             'furthermore', 'moreover', 'however', 'therefore',
-            'it is important to note', 'additionally', 'consequently'
+            'additionally', 'consequently'
         ]
         
-    def analyze_text(self, text):
-        """Analisa o texto e retorna a probabilidade de ser gerado por IA"""
-        if not text or len(text.strip()) < 50:
-            return 0, [], "Texto muito curto para análise"
-        
-        sentences = self._split_sentences(text)
-        paragraphs = text.split('\n\n')
-        
-        # Critérios de análise
-        scores = []
-        suspicious_parts = []
-        
-        # 1. Uniformidade no tamanho das sentenças
-        uniformity_score, uniform_parts = self._check_sentence_uniformity(sentences)
-        scores.append(uniformity_score)
-        suspicious_parts.extend(uniform_parts)
-        
-        # 2. Uso excessivo de conectivos/transições
-        connector_score, connector_parts = self._check_connectors(text, sentences)
-        scores.append(connector_score)
-        suspicious_parts.extend(connector_parts)
-        
-        # 3. Repetição de estruturas
-        repetition_score, rep_parts = self._check_repetition(sentences)
-        scores.append(repetition_score)
-        suspicious_parts.extend(rep_parts)
-        
-        # 4. Perfeição gramatical excessiva
-        perfection_score = self._check_perfection(text)
-        scores.append(perfection_score)
-        
-        # 5. Falta de erros/variação humana
-        human_variation_score = self._check_human_variation(text)
-        scores.append(human_variation_score)
-        
-        # Calcula a média ponderada
-        final_score = sum(scores) / len(scores)
-        
-        return min(100, final_score), suspicious_parts, self._generate_report(scores)
-    
-    def _split_sentences(self, text):
-        """Divide o texto em sentenças"""
-        sentences = re.split(r'[.!?]+', text)
-        return [s.strip() for s in sentences if s.strip()]
-    
-    def _check_sentence_uniformity(self, sentences):
-        """Verifica se as sentenças têm tamanho muito uniforme"""
-        if len(sentences) < 3:
-            return 0, []
-        
-        lengths = [len(s.split()) for s in sentences]
-        avg_length = sum(lengths) / len(lengths)
-        variance = sum((l - avg_length) ** 2 for l in lengths) / len(lengths)
-        std_dev = math.sqrt(variance)
-        
-        # Textos humanos têm mais variação
-        if std_dev < 3 and avg_length > 10:
-            score = 30
-            parts = [f"Sentenças muito uniformes (desvio: {std_dev:.1f})"]
-            return score, parts
-        
-        return 0, []
-    
-    def _check_connectors(self, text, sentences):
-        """Verifica uso excessivo de conectivos"""
         text_lower = text.lower()
-        connector_count = 0
         found_connectors = []
         
-        for indicator in self.ai_indicators:
-            count = text_lower.count(indicator.lower())
-            if count > 0:
-                connector_count += count
-                found_connectors.append(f"'{indicator}' ({count}x)")
+        for connector in ai_connectors:
+            if connector in text_lower:
+                count = text_lower.count(connector)
+                found_connectors.append(f"'{connector}' ({count}x)")
         
-        # Se mais de 20% das sentenças têm conectivos formais
-        connector_ratio = connector_count / max(len(sentences), 1)
+        if found_connectors:
+            suspicious.append(f"Conectivos formais detectados: {', '.join(found_connectors[:5])}")
         
-        if connector_ratio > 0.2:
-            score = min(35, connector_ratio * 100)
-            parts = [f"Conectivos formais excessivos: {', '.join(found_connectors[:5])}"]
-            return score, parts
+        # Verificar uniformidade de sentenças
+        sentences = [s.strip() for s in re.split(r'[.!?]+', text) if s.strip()]
+        if len(sentences) >= 3:
+            lengths = [len(s.split()) for s in sentences]
+            avg_len = np.mean(lengths)
+            std_len = np.std(lengths)
+            
+            if std_len < 3 and avg_len > 10:
+                suspicious.append(f"Sentenças muito uniformes (média: {avg_len:.1f} palavras, desvio: {std_len:.1f})")
         
-        return 0, []
+        # Verificar padrões repetitivos
+        if len(sentences) >= 3:
+            starts = [s.split()[0].lower() if s.split() else '' for s in sentences]
+            start_counter = Counter(starts)
+            most_common = start_counter.most_common(1)[0]
+            
+            if most_common[1] > len(sentences) * 0.3:
+                suspicious.append(f"Padrão repetitivo: {most_common[1]} sentenças começam com '{most_common[0]}'")
+        
+        return suspicious
     
-    def _check_repetition(self, sentences):
-        """Verifica padrões repetitivos"""
-        if len(sentences) < 3:
-            return 0, []
+    def _generate_report(self, ai_probability, text):
+        """Gera relatório detalhado da análise"""
+        report = "=== Análise com TensorFlow/Keras ===\n\n"
         
-        # Verifica início de sentenças
-        starts = [s.split()[0].lower() if s.split() else '' for s in sentences]
-        start_counter = Counter(starts)
-        most_common = start_counter.most_common(1)[0]
+        # Estatísticas do texto
+        words = text.split()
+        sentences = [s.strip() for s in re.split(r'[.!?]+', text) if s.strip()]
         
-        if most_common[1] > len(sentences) * 0.3:
-            score = 25
-            parts = [f"Muitas sentenças começam com '{most_common[0]}' ({most_common[1]}x)"]
-            return score, parts
+        report += f"Estatísticas do texto:\n"
+        report += f"• Total de palavras: {len(words)}\n"
+        report += f"• Total de sentenças: {len(sentences)}\n"
+        report += f"• Média de palavras por sentença: {len(words)/max(len(sentences), 1):.1f}\n\n"
         
-        return 0, []
-    
-    def _check_perfection(self, text):
-        """Verifica se o texto é 'perfeito demais'"""
-        # Textos humanos geralmente têm alguns erros ou inconsistências
-        # IA tende a ser muito consistente
+        # Interpretação do modelo
+        report += f"Resultado do modelo neural:\n"
+        report += f"• Probabilidade de IA: {ai_probability:.2f}%\n"
+        report += f"• Probabilidade humana: {100-ai_probability:.2f}%\n\n"
         
-        # Verifica pontuação perfeita
-        sentences = self._split_sentences(text)
-        if len(sentences) > 5:
-            # Verifica se todas as sentenças têm comprimento razoável
-            all_reasonable = all(5 < len(s.split()) < 50 for s in sentences)
-            if all_reasonable:
-                return 20
+        # Interpretação
+        if ai_probability < 30:
+            interpretation = "✓ Provavelmente escrito por humano"
+            confidence = "Alta confiança"
+        elif ai_probability < 50:
+            interpretation = "? Incerto - características mistas"
+            confidence = "Baixa confiança"
+        elif ai_probability < 70:
+            interpretation = "⚠ Possivelmente gerado por IA"
+            confidence = "Média confiança"
+        else:
+            interpretation = "✗ Provavelmente gerado por IA"
+            confidence = "Alta confiança"
         
-        return 0
-    
-    def _check_human_variation(self, text):
-        """Verifica falta de variação humana natural"""
-        # Textos humanos têm mais variação em pontuação, espaçamento, etc.
-        
-        # Verifica uso de pontuação variada
-        punctuation = re.findall(r'[,;:—\-()]', text)
-        if len(punctuation) < len(text) / 100:  # Muito pouca pontuação variada
-            return 15
-        
-        return 0
-    
-    def _generate_report(self, scores):
-        """Gera relatório detalhado"""
-        labels = [
-            "Uniformidade das sentenças",
-            "Uso de conectivos formais",
-            "Padrões repetitivos",
-            "Perfeição gramatical",
-            "Falta de variação humana"
-        ]
-        
-        report = "Análise detalhada:\n\n"
-        for label, score in zip(labels, scores):
-            report += f"• {label}: {score:.1f}%\n"
+        report += f"Interpretação: {interpretation}\n"
+        report += f"Confiança: {confidence}\n"
         
         return report
 
@@ -163,32 +234,67 @@ class AITextDetector:
 class AIDetectorGUI:
     def __init__(self, root):
         self.root = root
-        self.root.title("Detector de Texto Gerado por IA")
-        self.root.geometry("900x700")
+        self.root.title("Detector de Texto IA - TensorFlow")
+        self.root.geometry("950x750")
         self.root.configure(bg='#f0f0f0')
         
-        self.detector = AITextDetector()
+        self.detector = None
         self.current_text = ""
         
         self._create_widgets()
+        self._initialize_model()
+    
+    def _initialize_model(self):
+        """Inicializa o modelo em background"""
+        self.status_label.config(text="⏳ Carregando modelo TensorFlow...")
+        self.root.update()
+        
+        try:
+            self.detector = AITextDetectorML()
+            self.status_label.config(text="✓ Modelo carregado e pronto!")
+            self.load_btn.config(state='normal')
+        except Exception as e:
+            self.status_label.config(text=f"✗ Erro ao carregar modelo: {str(e)}")
     
     def _create_widgets(self):
         # Título
-        title_frame = tk.Frame(self.root, bg='#2c3e50', pady=15)
+        title_frame = tk.Frame(self.root, bg='#1a237e', pady=15)
         title_frame.pack(fill='x')
         
         title = tk.Label(
             title_frame,
-            text="🤖 Detector de Texto Gerado por IA",
+            text="🤖 Detector de IA com TensorFlow",
             font=('Arial', 18, 'bold'),
-            bg='#2c3e50',
+            bg='#1a237e',
             fg='white'
         )
         title.pack()
         
+        subtitle = tk.Label(
+            title_frame,
+            text="Análise de texto usando Deep Learning",
+            font=('Arial', 10),
+            bg='#1a237e',
+            fg='#bbdefb'
+        )
+        subtitle.pack()
+        
         # Frame principal
         main_frame = tk.Frame(self.root, bg='#f0f0f0', padx=20, pady=20)
         main_frame.pack(fill='both', expand=True)
+        
+        # Status do modelo
+        self.status_label = tk.Label(
+            main_frame,
+            text="⏳ Inicializando...",
+            font=('Arial', 10),
+            bg='#fff3cd',
+            fg='#856404',
+            pady=8,
+            relief='solid',
+            borderwidth=1
+        )
+        self.status_label.pack(fill='x', pady=(0, 15))
         
         # Botões de ação
         button_frame = tk.Frame(main_frame, bg='#f0f0f0')
@@ -199,21 +305,22 @@ class AIDetectorGUI:
             text="📁 Carregar Arquivo",
             command=self.load_file,
             font=('Arial', 11),
-            bg='#3498db',
+            bg='#1976d2',
             fg='white',
             padx=20,
             pady=10,
             cursor='hand2',
-            relief='flat'
+            relief='flat',
+            state='disabled'
         )
         self.load_btn.pack(side='left', padx=(0, 10))
         
         self.analyze_btn = tk.Button(
             button_frame,
-            text="🔍 Analisar Texto",
+            text="🔍 Analisar com IA",
             command=self.analyze,
             font=('Arial', 11),
-            bg='#2ecc71',
+            bg='#388e3c',
             fg='white',
             padx=20,
             pady=10,
@@ -234,8 +341,8 @@ class AIDetectorGUI:
         
         self.text_area = scrolledtext.ScrolledText(
             main_frame,
-            height=12,
-            font=('Arial', 10),
+            height=10,
+            font=('Consolas', 10),
             wrap='word',
             relief='solid',
             borderwidth=1
@@ -252,28 +359,28 @@ class AIDetectorGUI:
             text="Probabilidade de ser IA: ---%",
             font=('Arial', 16, 'bold'),
             bg='white',
-            fg='#2c3e50',
-            pady=20
+            fg='#1a237e',
+            pady=15
         )
         self.result_label.pack()
         
         # Barra de progresso
         self.progress = ttk.Progressbar(
             result_frame,
-            length=400,
+            length=500,
             mode='determinate',
             style='Custom.Horizontal.TProgressbar'
         )
-        self.progress.pack(pady=(0, 20))
+        self.progress.pack(pady=(0, 15))
         
         # Configurar estilo da barra
         style = ttk.Style()
         style.theme_use('default')
         style.configure(
             'Custom.Horizontal.TProgressbar',
-            thickness=25,
-            troughcolor='#ecf0f1',
-            background='#e74c3c'
+            thickness=30,
+            troughcolor='#e3f2fd',
+            background='#d32f2f'
         )
         
         # Relatório detalhado
@@ -287,8 +394,8 @@ class AIDetectorGUI:
         
         self.report_area = scrolledtext.ScrolledText(
             main_frame,
-            height=8,
-            font=('Arial', 9),
+            height=10,
+            font=('Consolas', 9),
             wrap='word',
             relief='solid',
             borderwidth=1,
@@ -299,6 +406,9 @@ class AIDetectorGUI:
     
     def _on_text_change(self, event=None):
         """Habilita botão de análise quando há texto"""
+        if self.detector is None:
+            return
+            
         text = self.text_area.get('1.0', 'end-1c').strip()
         if text:
             self.analyze_btn.config(state='normal')
@@ -327,53 +437,67 @@ class AIDetectorGUI:
                 self._show_error(f"Erro ao carregar arquivo: {str(e)}")
     
     def analyze(self):
-        """Analisa o texto"""
+        """Analisa o texto usando TensorFlow"""
         text = self.text_area.get('1.0', 'end-1c').strip()
         
         if not text:
             self._show_error("Por favor, insira ou carregue um texto para análise.")
             return
         
-        # Realiza análise
-        score, suspicious_parts, report = self.detector.analyze_text(text)
+        if self.detector is None:
+            self._show_error("Modelo ainda não foi carregado. Aguarde...")
+            return
         
-        # Atualiza interface
-        self.result_label.config(text=f"Probabilidade de ser IA: {score:.1f}%")
-        self.progress['value'] = score
+        # Mostrar que está processando
+        self.analyze_btn.config(text="⏳ Analisando...", state='disabled')
+        self.root.update()
         
-        # Muda cor baseado no score
-        if score < 30:
-            color = '#2ecc71'  # Verde
-            interpretation = "Provavelmente escrito por humano"
-        elif score < 60:
-            color = '#f39c12'  # Laranja
-            interpretation = "Incerto - pode ter partes geradas por IA"
-        else:
-            color = '#e74c3c'  # Vermelho
-            interpretation = "Provavelmente gerado por IA"
+        try:
+            # Realiza análise com TensorFlow
+            score, suspicious_parts, report = self.detector.analyze_text(text)
+            
+            # Atualiza interface
+            self.result_label.config(text=f"Probabilidade de ser IA: {score:.1f}%")
+            self.progress['value'] = score
+            
+            # Muda cor baseado no score
+            if score < 30:
+                color = '#4caf50'  # Verde
+            elif score < 50:
+                color = '#ff9800'  # Laranja
+            elif score < 70:
+                color = '#ff5722'  # Laranja escuro
+            else:
+                color = '#d32f2f'  # Vermelho
+            
+            style = ttk.Style()
+            style.configure('Custom.Horizontal.TProgressbar', background=color)
+            
+            # Atualiza relatório
+            self.report_area.config(state='normal')
+            self.report_area.delete('1.0', 'end')
+            
+            full_report = report
+            
+            if suspicious_parts:
+                full_report += "\n\nIndicadores suspeitos encontrados:\n"
+                for i, part in enumerate(suspicious_parts, 1):
+                    full_report += f"{i}. {part}\n"
+            
+            self.report_area.insert('1.0', full_report)
+            self.report_area.config(state='disabled')
+            
+        except Exception as e:
+            self._show_error(f"Erro durante análise: {str(e)}")
         
-        style = ttk.Style()
-        style.configure('Custom.Horizontal.TProgressbar', background=color)
-        
-        # Atualiza relatório
-        self.report_area.config(state='normal')
-        self.report_area.delete('1.0', 'end')
-        
-        full_report = f"Interpretação: {interpretation}\n\n{report}"
-        
-        if suspicious_parts:
-            full_report += "\n\nIndicadores encontrados:\n"
-            for part in suspicious_parts:
-                full_report += f"• {part}\n"
-        
-        self.report_area.insert('1.0', full_report)
-        self.report_area.config(state='disabled')
+        finally:
+            self.analyze_btn.config(text="🔍 Analisar com IA", state='normal')
     
     def _show_error(self, message):
         """Mostra mensagem de erro"""
         error_window = tk.Toplevel(self.root)
         error_window.title("Erro")
-        error_window.geometry("400x150")
+        error_window.geometry("450x150")
         error_window.configure(bg='white')
         
         label = tk.Label(
@@ -381,7 +505,7 @@ class AIDetectorGUI:
             text=message,
             font=('Arial', 11),
             bg='white',
-            wraplength=350
+            wraplength=400
         )
         label.pack(pady=30)
         
@@ -389,10 +513,12 @@ class AIDetectorGUI:
             error_window,
             text="OK",
             command=error_window.destroy,
-            bg='#3498db',
+            bg='#1976d2',
             fg='white',
             padx=30,
-            pady=5
+            pady=5,
+            relief='flat',
+            cursor='hand2'
         )
         btn.pack()
 
