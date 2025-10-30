@@ -18,7 +18,6 @@ class AITextDetectorML:
         self._build_and_train_model()
         
     def _build_and_train_model(self):
-        """Constrói e treina o modelo TensorFlow"""
         print("Inicializando modelo TensorFlow...")
         
         # Criar tokenizer
